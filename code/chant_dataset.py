@@ -68,7 +68,3 @@ class ChantDataset(data.Dataset):
 
     def get_id(self, item):
         return self._ids[item]
-
-dataset = ChantDataset(15)
-for i in range(10):
-    print(dataset[i])
