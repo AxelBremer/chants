@@ -21,33 +21,54 @@ import os
 import numpy as np
 import torch.utils.data as data
 
+import json
+
 import pandas as pd
 from pycantus import Cantus
 
-ids = []
-modes = []
-vps = []
-
 class ChantDataset(data.Dataset):
 
-    def __init__(self, seq_length):
+    def __init__(self, seq_length=15):
+        path = os.path.join(os.getcwd(), 'data/stripped_data.json')
+        with open(path, 'r') as fp:
+            d = json.load(fp)
+        self._ids = d['ids']
+        self._modes = d['modes']
+        self._vps = d['vps']
+
         self._seq_length = seq_length
-        self._chars = list(set(self._data))
+
+        inds = [i for i, x in enumerate(self._vps) if len(x) > (seq_length-1)]
+        self._ids = [self._ids[i] for i in inds]
+        self._vps = [self._vps[i][:seq_length] for i in inds]
+        self._modes = [self._modes[i] for i in inds]
+
+        self._unique_modes = list(set(self._modes))
+        self._chars = list(set(''.join(self._vps)))
         self._chars.sort()
-        self._data_size, self._vocab_size = len(self._data), len(self._chars)
-        print("Initialize dataset with {} characters, {} unique.".format(
+
+
+        self._data_size, self._vocab_size = len(self._modes), len(self._chars)
+        print("Initialize dataset with {} chants, with vocab size of {}.".format(
             self._data_size, self._vocab_size))
+
         self._char_to_ix = { ch:i for i,ch in enumerate(self._chars) }
         self._ix_to_char = { i:ch for i,ch in enumerate(self._chars) }
-        self._offset = 0
+
+        self._mode_to_ix = { m:i for i,m in enumerate(self._unique_modes)}
+        self._ix_to_mode = { i:m for i,m in enumerate(self._unique_modes)}
 
     def __getitem__(self, item):
-        offset = np.random.randint(0, len(self._data)-self._seq_length-2)
-        inputs =  [self._char_to_ix[ch] for ch in self._data[offset:offset+self._seq_length]]
-        targets = [self._char_to_ix[ch] for ch in self._data[offset+1:offset+self._seq_length+1]]
+        inputs =  [self._char_to_ix[ch] for ch in self._vps[item]]
+        targets = self._mode_to_ix[self._modes[item]]
         return inputs, targets
 
     def __len__(self):
         return self._data_size
 
-dataset = ChantDataset(30)
+    def get_id(self, item):
+        return self._ids[item]
+
+dataset = ChantDataset(15)
+for i in range(10):
+    print(dataset[i])

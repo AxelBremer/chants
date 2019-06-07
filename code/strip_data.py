@@ -26,5 +26,5 @@ directory = path.join(getcwd(), 'data')
 
 d = {'ids':ids, 'modes':modes, 'vps':vps}
 
-with open(directory+'/data/stripped.json', 'w') as fp:
+with open(directory+'/stripped_data.json', 'w') as fp:
     json.dump(d, fp)
