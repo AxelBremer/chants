@@ -24,7 +24,6 @@ import argparse
 
 import numpy as np
 import json
-import os
 
 import torch
 import torch.optim as optim
@@ -34,6 +33,24 @@ from model import ModeModel
 from chant_dataset import ChantDataset
 
 ################################################################################
+def load_model(model_save_string, vocab_size, mode_num):
+    # Initialize the model that we are going to use
+    if os.path.isfile(model_save_string):
+        print('Loading model')
+        model = torch.load(model_save_string, map_location=config.device)
+        print('Starting from %i steps in model' %(model.steps))
+    else:
+        print('No model found, creating one...')
+        model = ModeModel(batch_size=config.batch_size, 
+                                    seq_length=config.seq_length, 
+                                    vocab_size=vocab_size,
+                                    mode_num=mode_num, 
+                                    lstm_num_hidden=config.lstm_num_hidden, 
+                                    lstm_num_layers=config.lstm_num_layers, 
+                                    device=config.device)
+    return model
+
+
 def num2hot(batch, vocab_size, device):
     # Get the shape of the input and add the vocabulary size in a new dimension
     shape = list(batch.shape)
@@ -42,9 +59,15 @@ def num2hot(batch, vocab_size, device):
     # Create the output tensor and use it as index to place a one in the new tensor
     y_out = torch.zeros(shape).to(device)
     batch = batch.unsqueeze(-1)
+    
     y_out.scatter_(2, batch, torch.tensor(1).to(device))
 
     return y_out
+
+
+def get_accuracy(y_target, y_pred, config):
+    return (y_pred.argmax(dim=2) == y_target).sum().cpu().numpy().item()/(config.seq_length * config.batch_size)
+
 
 def train(config):
     # Initialize the device which to run the model on
@@ -54,31 +77,16 @@ def train(config):
     dataset = ChantDataset(seq_length=config.seq_length)
     data_loader = DataLoader(dataset, config.batch_size, num_workers=0)
 
-    vocab_size = dataset.vocab_size
+    vocab_size = dataset._vocab_size
+    mode_num = dataset._mode_num
+
+    path = 'output/' + config.name + '_' + str(config.seq_length)    
+    model_save_string = path + '/model.pt'
+    metric_save_string = path +  '/metrics.json'
+
+    os.makedirs(path, exist_ok=True)
     
-    save_string = config.txt_file.replace('.txt', '')
-    text_save_string = save_string + '_' + str(config.seq_length) + '_greedy_generated_text.txt'
-    model_save_string = save_string + '_' + str(config.seq_length) + '_model.pt'
-    metric_save_string = save_string + '_' + str(config.seq_length) +  '_metrics.json'
-
-    if not os.path.isfile(text_save_string):
-        with open(text_save_string, 'w') as fp:
-            fp.write('Generated text for ' + save_string)
-
-
-    # Initialize the model that we are going to use
-    if os.path.isfile(model_save_string):
-        print('Loading model')
-        print('No model found, creating one...')
-        model = torch.load(model_save_string, map_location=config.device)
-        print('Starting from %i steps in model' %(model.steps))
-    else:
-        model = ModeModel(batch_size=config.batch_size, 
-                                    seq_length=config.seq_length, 
-                                    mode_num=dataset.mode_num, 
-                                    lstm_num_hidden=config.lstm_num_hidden, 
-                                    lstm_num_layers=config.lstm_num_layers, 
-                                    device=config.device)
+    model = load_model(model_save_string, vocab_size, mode_num)
         
     model.to(device)
 
@@ -103,7 +111,8 @@ def train(config):
             x = torch.stack(batch_inputs, dim=1).to(device)
             x = num2hot(x, vocab_size, device)
 
-            y_target = torch.stack(batch_targets, dim=1).to(device)
+            # y_target = torch.stack(batch_targets, dim=1).to(device)
+            y_target = batch_targets.unsqueeze(1).repeat(1,config.seq_length).to(device)
 
             y_pred, _ = model(x)
 
@@ -131,32 +140,29 @@ def train(config):
                         accuracy, loss
                 ))
 
-            if step % config.sample_every == 0:
+            if step % config.save_every == 0:
                 # Generate some sentences by sampling from the model
-                print('Sample at %i training steps with temp %f:' %(model.steps, config.temperature))
-                t = gen_text(model, dataset, config, config.seq_length, 'prob')
-                print(t)
-                with open(text_save_string, 'a') as fp:
-                    fp.write('\nSteps: ' + str(model.steps) + ' | ' + t)
                 accs.append(accuracy)
                 losses.append(loss.cpu().detach().item())
+                # Save model
                 torch.save(model, model_save_string)
+                # Save metrics in file
+                d = {'loss':losses, 'accuracy':accs}
+                with open(metric_save_string, 'w') as fp:
+                    json.dump(d,fp)
+                print('Saved model and metrics')
 
             if out_steps == config.train_steps:
                 # If you receive a PyTorch data-loader error, check this bug report:
                 # https://github.com/pytorch/pytorch/pull/9655
                 break
 
-    # Save metrics in file
-    d = {'loss':losses, 'accuracy':accs}
-    with open(metric_save_string, 'w') as fp:
-        json.dump(d,fp)
-
     print('Done training.')
 
 
  ################################################################################
  ################################################################################
+
 
 if __name__ == "__main__":
 
@@ -171,7 +177,7 @@ if __name__ == "__main__":
     # Training params
     parser.add_argument('--batch_size', type=int, default=64, help='Number of examples to process in a batch')
     parser.add_argument('--learning_rate', type=float, default=2e-3, help='Learning rate')
-    parser.add_argument('--train_steps', type=int, default=1e6, help='Number of training steps')
+    parser.add_argument('--train_steps', type=int, default=200, help='Number of training steps')
     parser.add_argument('--max_norm', type=float, default=5.0, help='Max to which to clip the norm of the gradients')
 
     # It is not necessary to implement the following three params, but it may help training.
@@ -179,11 +185,12 @@ if __name__ == "__main__":
     parser.add_argument('--learning_rate_step', type=int, default=5000, help='Learning rate step')
     parser.add_argument('--dropout_keep_prob', type=float, default=1.0, help='Dropout keep probability')
 
-    parser.add_argument('--device', type=str, default="cuda:0", help="Training device 'cpu' or 'cuda:0'")
+    parser.add_argument('--device', type=str, default="cpu", help="Training device 'cpu' or 'cuda:0'")
 
     # Misc params
     parser.add_argument('--print_every', type=int, default=5, help='How often to print training progress')
-    parser.add_argument('--sample_every', type=int, default=100, help='How often to sample from the model')
+    parser.add_argument('--save_every', type=int, default=50, help='How often to save model and metrics')
+    parser.add_argument('--name', type=str, default="debug", help="Name of the run")
 
     config = parser.parse_args()
 

@@ -22,19 +22,20 @@ import torch.nn as nn
 
 class ModeModel(nn.Module):
 
-    def __init__(self, batch_size, seq_length, mode_num,
-                 lstm_num_hidden=256, lstm_num_layers=2, device='cuda:0'):
+    def __init__(self, batch_size, seq_length, vocab_size, mode_num,
+                 lstm_num_hidden=256, lstm_num_layers=1, device='cuda:0'):
 
         super(ModeModel, self).__init__()
         self.batch_size = batch_size
         self.seq_length = seq_length
         self.lstm_num_hidden = lstm_num_hidden
         self.lstm_num_layers = lstm_num_layers
-        self.mode_num
+        self.vocab_size = vocab_size
+        self.mode_num = mode_num
         self.device = device
         self.steps = 0
 
-        self.lstm = nn.LSTM(input_size = self.vocabulary_size,
+        self.lstm = nn.LSTM(input_size = self.vocab_size,
                             hidden_size = self.lstm_num_hidden,
                             num_layers = self.lstm_num_layers,
                             batch_first = True)
