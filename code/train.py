@@ -31,6 +31,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from model import ModeModel
+from chant_dataset import ChantDataset
 
 ################################################################################
 def num2hot(batch, vocab_size, device):
@@ -50,7 +51,7 @@ def train(config):
     device = torch.device(config.device)
 
     # Initialize the dataset and data loader (note the +1)
-    dataset = TextDataset(filename=config.txt_file, seq_length=config.seq_length)
+    dataset = ChantDataset(seq_length=config.seq_length)
     data_loader = DataLoader(dataset, config.batch_size, num_workers=0)
 
     vocab_size = dataset.vocab_size
@@ -72,9 +73,9 @@ def train(config):
         model = torch.load(model_save_string, map_location=config.device)
         print('Starting from %i steps in model' %(model.steps))
     else:
-        model = TextGenerationModel(batch_size=config.batch_size, 
+        model = ModeModel(batch_size=config.batch_size, 
                                     seq_length=config.seq_length, 
-                                    vocabulary_size=dataset.vocab_size, 
+                                    mode_num=dataset.mode_num, 
                                     lstm_num_hidden=config.lstm_num_hidden, 
                                     lstm_num_layers=config.lstm_num_layers, 
                                     device=config.device)

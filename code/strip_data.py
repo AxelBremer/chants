@@ -8,12 +8,14 @@ from tqdm import tqdm
 ids = []
 modes = []
 vps = []
+true_modes = [str(x+1) for x in range(8)]
 
 def get_id_mode_volp(row):
     if pd.notna(row['volpiano']) and pd.notna(row['mode']):
-        ids.append(row.name)
-        vps.append(row['volpiano'])
-        modes.append(row['mode'])
+        if(row['mode'] in true_modes):
+            ids.append(row.name)
+            vps.append(row['volpiano'])
+            modes.append(row['mode'])
 
 tqdm.pandas()
 

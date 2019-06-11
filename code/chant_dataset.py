@@ -21,6 +21,8 @@ import os
 import numpy as np
 import torch.utils.data as data
 
+from collections import Counter
+
 import json
 
 import pandas as pd
@@ -44,7 +46,8 @@ class ChantDataset(data.Dataset):
         self._modes = [self._modes[i] for i in inds]
 
         self._unique_modes = list(set(self._modes))
-        print(self._unique_modes)
+        print(Counter(self._modes).most_common(len(self._unique_modes)))
+        self._mode_num = len(self._unique_modes)
         self._chars = list(set(''.join(self._vps)))
         self._chars.sort()
 
@@ -70,4 +73,4 @@ class ChantDataset(data.Dataset):
     def get_id(self, item):
         return self._ids[item]
 
-ChantDataset(1)
+ChantDataset(15)
