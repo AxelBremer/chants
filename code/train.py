@@ -43,7 +43,7 @@ def num2hot(batch, vocab_size, device):
     batch = batch.unsqueeze(-1)
     y_out.scatter_(2, batch, torch.tensor(1).to(device))
 
-return y_out
+    return y_out
 
 def train(config):
     # Initialize the device which to run the model on
