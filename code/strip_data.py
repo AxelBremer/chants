@@ -10,7 +10,7 @@ modes = []
 vps = []
 
 def get_id_mode_volp(row):
-    if pd.notna(row['volpiano']):
+    if pd.notna(row['volpiano']) and pd.notna(row['mode']):
         ids.append(row.name)
         vps.append(row['volpiano'])
         modes.append(row['mode'])

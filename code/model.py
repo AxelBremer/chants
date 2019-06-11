@@ -22,15 +22,15 @@ import torch.nn as nn
 
 class ModeModel(nn.Module):
 
-    def __init__(self, batch_size, seq_length, vocabulary_size,
+    def __init__(self, batch_size, seq_length, mode_num,
                  lstm_num_hidden=256, lstm_num_layers=2, device='cuda:0'):
 
         super(ModeModel, self).__init__()
         self.batch_size = batch_size
         self.seq_length = seq_length
-        self.vocabulary_size = vocabulary_size
         self.lstm_num_hidden = lstm_num_hidden
         self.lstm_num_layers = lstm_num_layers
+        self.mode_num
         self.device = device
         self.steps = 0
 
@@ -40,7 +40,7 @@ class ModeModel(nn.Module):
                             batch_first = True)
 
         self.linear = nn.Linear(in_features = self.lstm_num_hidden,
-                                out_features = self.vocabulary_size,
+                                out_features = self.mode_num,
                                 bias = True)
 
     def forward(self, x, states=None):

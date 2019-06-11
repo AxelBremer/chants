@@ -33,6 +33,17 @@ from torch.utils.data import DataLoader
 from model import ModeModel
 
 ################################################################################
+def num2hot(batch, vocab_size, device):
+    # Get the shape of the input and add the vocabulary size in a new dimension
+    shape = list(batch.shape)
+    shape = shape + [vocab_size]
+
+    # Create the output tensor and use it as index to place a one in the new tensor
+    y_out = torch.zeros(shape).to(device)
+    batch = batch.unsqueeze(-1)
+    y_out.scatter_(2, batch, torch.tensor(1).to(device))
+
+return y_out
 
 def train(config):
     # Initialize the device which to run the model on

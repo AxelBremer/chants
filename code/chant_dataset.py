@@ -38,19 +38,20 @@ class ChantDataset(data.Dataset):
 
         self._seq_length = seq_length
 
-        inds = [i for i, x in enumerate(self._vps) if len(x) > (seq_length-1)]
+        inds = [i for i, x in enumerate(self._vps) if ((len(x) > (seq_length-1)) and ("T" not in self._modes[i]))]
         self._ids = [self._ids[i] for i in inds]
         self._vps = [self._vps[i][:seq_length] for i in inds]
         self._modes = [self._modes[i] for i in inds]
 
         self._unique_modes = list(set(self._modes))
+        print(self._unique_modes)
         self._chars = list(set(''.join(self._vps)))
         self._chars.sort()
 
 
         self._data_size, self._vocab_size = len(self._modes), len(self._chars)
-        print("Initialize dataset with {} chants, with vocab size of {}.".format(
-            self._data_size, self._vocab_size))
+        print("Initialize dataset with {} chants, with vocab size of {} and {} modes.".format(
+            self._data_size, self._vocab_size, len(self._unique_modes)))
 
         self._char_to_ix = { ch:i for i,ch in enumerate(self._chars) }
         self._ix_to_char = { i:ch for i,ch in enumerate(self._chars) }
@@ -68,3 +69,5 @@ class ChantDataset(data.Dataset):
 
     def get_id(self, item):
         return self._ids[item]
+
+ChantDataset(1)
