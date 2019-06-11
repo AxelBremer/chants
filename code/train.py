@@ -177,7 +177,7 @@ if __name__ == "__main__":
     # Training params
     parser.add_argument('--batch_size', type=int, default=64, help='Number of examples to process in a batch')
     parser.add_argument('--learning_rate', type=float, default=2e-3, help='Learning rate')
-    parser.add_argument('--train_steps', type=int, default=200, help='Number of training steps')
+    parser.add_argument('--train_steps', type=int, default=1e6, help='Number of training steps')
     parser.add_argument('--max_norm', type=float, default=5.0, help='Max to which to clip the norm of the gradients')
 
     # It is not necessary to implement the following three params, but it may help training.
