@@ -80,9 +80,9 @@ def train(config):
     vocab_size = dataset._vocab_size
     mode_num = dataset._mode_num
 
-    path = 'output/' + config.name + '_' + str(config.seq_length)    
-    model_save_string = path + '/model.pt'
-    metric_save_string = path +  '/metrics.json'
+    path = 'output/' + config.name    
+    model_save_string = path + '/' + str(config.seq_length) + '_model.pt'
+    metric_save_string = path +  '/' + str(config.seq_length) + '_metrics.json'
 
     os.makedirs(path, exist_ok=True)
     
