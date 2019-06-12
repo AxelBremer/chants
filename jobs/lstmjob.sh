@@ -10,8 +10,8 @@ cp -a $HOME/chants "$TMPDIR"
 cd "$TMPDIR"/chants
 
 python $TMPDIR/chants/code/train.py --name Claus --device cuda --seq_length 30 --lstm_num_hidden 256 --lstm_num_layers 2
-python $HOME/chants/code/train.py --name Dolores --device cuda --seq_length 60 --lstm_num_hidden 256 --lstm_num_layers 2
-python $HOME/chants/code/train.py --name Edward --device cuda --seq_length 30 --lstm_num_hidden 128 --lstm_num_layers 1
+python $TMPDIR/chants/code/train.py --name Dolores --device cuda --seq_length 60 --lstm_num_hidden 256 --lstm_num_layers 2
+python $TMPDIR/chants/code/train.py --name Edward --device cuda --seq_length 30 --lstm_num_hidden 128 --lstm_num_layers 1
 
 wait
 cp -au "$TMPDIR"/chants/output $HOME/chants
