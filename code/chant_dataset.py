@@ -84,8 +84,8 @@ class ChantDataset(data.Dataset):
         self._words =  list(set(self._flat_words))
 
 
-        print("Neumes vocab \n {}. \n\n Syllables vocab \n {}, \n \n Words vocab \n {}".format(
-            self._neumes, self._syllables, self._words))
+        # print("Neumes vocab \n {}. \n\n Syllables vocab \n {}, \n \n Words vocab \n {}".format(
+            # self._neumes, self._syllables, self._words))
 
     def __getitem__(self, item):
         inputs = [self._char_to_ix[ch] for ch in self._vps[item]]

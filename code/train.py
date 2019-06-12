@@ -66,7 +66,10 @@ def num2hot(batch, vocab_size, device):
 
 
 def get_accuracy(y_target, y_pred, config):
-    return (y_pred.argmax(dim=2) == y_target).sum().cpu().numpy().item()/(config.seq_length * config.batch_size)
+    # Many to many
+    # return (y_pred.argmax(dim=2) == y_target).sum().cpu().numpy().item()/(config.seq_length * config.batch_size)
+    # Many to one
+    return (y_pred.argmax(dim=1) == y_target).sum().cpu().numpy().item()/(config.batch_size)
 
 
 def train(config):
@@ -81,8 +84,8 @@ def train(config):
     mode_num = dataset._mode_num
 
     path = 'output/' + config.name    
-    model_save_string = path + '/' + str(config.seq_length) + '_model.pt'
-    metric_save_string = path +  '/' + str(config.seq_length) + '_metrics.json'
+    model_save_string = path + '/' + str(config.seq_length) + '_' + str(config.lstm_num_hidden) + '_' + str(config.lstm_num_layers) + '_model.pt'
+    metric_save_string = path +  '/' + str(config.seq_length) + '_' + str(config.lstm_num_hidden) + '_' + str(config.lstm_num_layers) + '_metrics.json'
 
     os.makedirs(path, exist_ok=True)
     
@@ -111,12 +114,15 @@ def train(config):
             x = torch.stack(batch_inputs, dim=1).to(device)
             x = num2hot(x, vocab_size, device)
 
-            # y_target = torch.stack(batch_targets, dim=1).to(device)
-            y_target = batch_targets.unsqueeze(1).repeat(1,config.seq_length).to(device)
+            # Many to many
+            # y_target = batch_targets.unsqueeze(1).repeat(1,config.seq_length).to(device)
+
+            # Many to one
+            y_target = batch_targets
 
             y_pred, _ = model(x)
 
-            loss = criterion(y_pred.transpose(2,1), y_target)
+            loss = criterion(y_pred, y_target)
             accuracy = get_accuracy(y_target, y_pred, config)
 
             optimizer.zero_grad()
@@ -171,7 +177,7 @@ if __name__ == "__main__":
 
     # Model params
     parser.add_argument('--seq_length', type=int, default=30, help='Length of an input sequence')
-    parser.add_argument('--lstm_num_hidden', type=int, default=128, help='Number of hidden units in the LSTM')
+    parser.add_argument('--lstm_num_hidden', type=int, default=256, help='Number of hidden units in the LSTM')
     parser.add_argument('--lstm_num_layers', type=int, default=2, help='Number of LSTM layers in the model')
 
     # Training params

@@ -6,6 +6,9 @@ __pycache__/
 # Data dir
 data/
 
+# Output dir
+output/
+
 # C extensions
 *.so
 

@@ -50,7 +50,7 @@ class ModeModel(nn.Module):
         else:
             lstm_out, states = self.lstm(x)
         out = self.linear(lstm_out)
-        return out, states
+        return out[:,-1,:].squeeze(), states
 
     def step(self):
         self.steps += 1
