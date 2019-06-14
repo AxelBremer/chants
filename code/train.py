@@ -35,7 +35,7 @@ from chant_dataset import ChantDataset
 ################################################################################
 def load_model(model_save_string, vocab_size, mode_num):
     # Initialize the model that we are going to use
-    if os.path.isfile(model_save_string):
+    if os.path.isfile(model_save_string) and (model_save_string != 'debug'):
         print('Loading model')
         model = torch.load(model_save_string, map_location=config.device)
         print('Starting from %i steps in model' %(model.steps))
@@ -77,7 +77,7 @@ def train(config):
     device = torch.device(config.device)
 
     # Initialize the dataset and data loader (note the +1)
-    dataset = ChantDataset(seq_length=config.seq_length)
+    dataset = ChantDataset(seq_length=config.seq_length, representation=config.representation)
     data_loader = DataLoader(dataset, config.batch_size, num_workers=0)
 
     vocab_size = dataset._vocab_size
@@ -118,11 +118,11 @@ def train(config):
             # y_target = batch_targets.unsqueeze(1).repeat(1,config.seq_length).to(device)
 
             # Many to one
-            y_target = batch_targets
+            y_target = batch_targets.to(device)
 
             y_pred, _ = model(x)
 
-            loss = criterion(y_pred, y_target)
+            loss = criterion(y_pred, y_target).to(device)
             accuracy = get_accuracy(y_target, y_pred, config)
 
             optimizer.zero_grad()
@@ -141,7 +141,7 @@ def train(config):
 
                 print("[{}] Train Step {:04d}/{:04d}, Model Steps {:04d}, Batch Size = {}, Examples/Sec = {:.2f}, "
                     "Accuracy = {:.2f}, Loss = {:.3f}".format(
-                        datetime.now().strftime("%Y-%m-%d %H:%M"), step,
+                        datetime.now().strftime("%Y-%m-%d %H:%M"), model.steps,
                         int(config.train_steps), model.steps, config.batch_size, examples_per_second,
                         accuracy, loss
                 ))
@@ -197,6 +197,8 @@ if __name__ == "__main__":
     parser.add_argument('--print_every', type=int, default=5, help='How often to print training progress')
     parser.add_argument('--save_every', type=int, default=50, help='How often to save model and metrics')
     parser.add_argument('--name', type=str, default="debug", help="Name of the run")
+
+    parser.add_argument('--representation', type=str, required=True, help="representation of the volpiano")
 
     config = parser.parse_args()
 
