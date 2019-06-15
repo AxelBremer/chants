@@ -141,7 +141,7 @@ def train(config):
 
                 print("[{}] Train Step {:04d}/{:04d}, Model Steps {:04d}, Batch Size = {}, Examples/Sec = {:.2f}, "
                     "Accuracy = {:.2f}, Loss = {:.3f}".format(
-                        datetime.now().strftime("%Y-%m-%d %H:%M"), model.steps,
+                        datetime.now().strftime("%Y-%m-%d %H:%M"), step,
                         int(config.train_steps), model.steps, config.batch_size, examples_per_second,
                         accuracy, loss
                 ))
