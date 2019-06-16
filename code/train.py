@@ -92,8 +92,8 @@ def train(config):
     mode_num = dataset._mode_num
 
     path = 'output/' + config.name    
-    model_save_string = path + '/'+ '_' + str(config.notes) + str(config.seq_length) + '_' + str(config.lstm_num_hidden) + '_' + str(config.lstm_num_layers) + '_model.pt'
-    metric_save_string = path + '/'+ '_' + str(config.notes) + str(config.seq_length) + '_' + str(config.lstm_num_hidden) + '_' + str(config.lstm_num_layers) + '_metrics.json'
+    model_save_string = path + '/' + str(config.notes) + '_' + str(config.seq_length) + '_' + str(config.lstm_num_hidden) + '_' + str(config.lstm_num_layers) + '_model.pt'
+    metric_save_string = path + '/' + str(config.notes) + '_' + str(config.seq_length) + '_' + str(config.lstm_num_hidden) + '_' + str(config.lstm_num_layers) + '_metrics.json'
 
     os.makedirs(path, exist_ok=True)
     
