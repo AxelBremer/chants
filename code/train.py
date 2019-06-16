@@ -18,12 +18,12 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-import time
 from datetime import datetime
 import argparse
 
 import numpy as np
 import json
+import math
 
 import torch
 import torch.optim as optim
@@ -77,8 +77,12 @@ def train(config):
     device = torch.device(config.device)
 
     # Initialize the dataset and data loader (note the +1)
-    dataset = ChantDataset(seq_length=config.seq_length, representation=config.representation)
+    dataset = ChantDataset(seq_length=config.seq_length, representation=config.representation, target='mode', traintest='train')
     data_loader = DataLoader(dataset, config.batch_size, num_workers=0)
+
+    # Initialize the dataset and data loader (note the +1)
+    test_dataset = ChantDataset(seq_length=config.seq_length, representation=config.representation, target='mode', traintest='test')
+    test_data_loader = DataLoader(dataset, config.batch_size, num_workers=0)
 
     vocab_size = dataset._vocab_size
     mode_num = dataset._mode_num
@@ -103,13 +107,17 @@ def train(config):
 
     losses = []
     accs = []
+    test_losses = []
+    test_accs = []
 
+    inputs_test, targets_test = dataset.get_test_set()
     # Extra while loop to keep iterating over the dataset
     while out_steps < config.train_steps:
+        ct = 0
+        running_acc = 0
+        running_loss = 0
         for step, (batch_inputs, batch_targets) in enumerate(data_loader):
-
-            # Only for time measurement of step through network
-            t1 = time.time()
+            ct += 1
 
             x = torch.stack(batch_inputs, dim=1).to(device)
             x = num2hot(x, vocab_size, device)
@@ -125,6 +133,9 @@ def train(config):
             loss = criterion(y_pred, y_target).to(device)
             accuracy = get_accuracy(y_target, y_pred, config)
 
+            running_acc += accuracy
+            running_loss += loss.cpu().item()
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -133,36 +144,47 @@ def train(config):
             model.step()
             out_steps += 1
 
-            # Just for time measurement
-            t2 = time.time()
-            examples_per_second = config.batch_size/float(t2-t1)
-
-            if step % config.print_every == 0:
-
-                print("[{}] Train Step {:04d}/{:04d}, Model Steps {:04d}, Batch Size = {}, Examples/Sec = {:.2f}, "
-                    "Accuracy = {:.2f}, Loss = {:.3f}".format(
-                        datetime.now().strftime("%Y-%m-%d %H:%M"), step,
-                        int(config.train_steps), model.steps, config.batch_size, examples_per_second,
-                        accuracy, loss
-                ))
-
-            if step % config.save_every == 0:
-                # Generate some sentences by sampling from the model
-                accs.append(accuracy)
-                losses.append(loss.cpu().detach().item())
-                # Save model
-                torch.save(model, model_save_string)
-                # Save metrics in file
-                d = {'loss':losses, 'accuracy':accs}
-                with open(metric_save_string, 'w') as fp:
-                    json.dump(d,fp)
-                print('Saved model and metrics')
-
             if out_steps == config.train_steps:
                 # If you receive a PyTorch data-loader error, check this bug report:
                 # https://github.com/pytorch/pytorch/pull/9655
                 break
 
+        accuracy = running_acc/ct
+        loss = running_loss/ct
+        with torch.no_grad():
+                test_loss = 0
+                test_acc = 0
+                ct = 0
+                for step, (test_batch_inputs, test_batch_targets) in enumerate(test_data_loader):
+                    ct += 1
+                    x = torch.stack(test_batch_inputs, dim=1).to(device)
+                    x = num2hot(x, vocab_size, device)
+                    y_target_test = test_batch_targets.to(device)
+                    y_pred_test, _ = model(x)
+                    test_loss += criterion(y_pred_test, y_target_test).item()
+                    test_acc += get_accuracy(y_target_test, y_pred_test, config)
+
+                test_loss = test_loss/ct
+                test_acc = test_acc/ct
+            
+        print("[{}] Train Steps {:04d}/{:04d}, Batch Size = {},"
+            "Accuracy = {:.2f}, Loss = {:.3f}, Test Acc = {:.2f}, Test Loss = {:.3f}".format(
+                datetime.now().strftime("%Y-%m-%d %H:%M"),
+                model.steps, int(config.train_steps), config.batch_size,
+                accuracy, loss, test_acc, test_loss
+        ))
+
+        accs.append(accuracy)
+        losses.append(loss)
+        test_accs.append(test_acc)
+        test_losses.append(test_loss)
+        # Save model
+        torch.save(model, model_save_string)
+        # Save metrics in file
+        d = {'loss':losses, 'accuracy':accs, 'test_loss':test_losses, 'test_accuracy':test_accs}
+        with open(metric_save_string, 'w') as fp:
+            json.dump(d,fp)
+        print('Saved model and metrics')
     print('Done training.')
 
 
@@ -191,11 +213,10 @@ if __name__ == "__main__":
     parser.add_argument('--learning_rate_step', type=int, default=5000, help='Learning rate step')
     parser.add_argument('--dropout_keep_prob', type=float, default=1.0, help='Dropout keep probability')
 
-    parser.add_argument('--device', type=str, default="cpu", help="Training device 'cpu' or 'cuda:0'")
+    parser.add_argument('--device', type=str, default="cuda", help="Training device 'cpu' or 'cuda:0'")
 
     # Misc params
-    parser.add_argument('--print_every', type=int, default=5, help='How often to print training progress')
-    parser.add_argument('--save_every', type=int, default=50, help='How often to save model and metrics')
+    parser.add_argument('--save_every', type=int, default=200, help='How often to save model and metrics')
     parser.add_argument('--name', type=str, default="debug", help="Name of the run")
 
     parser.add_argument('--representation', type=str, required=True, help="representation of the volpiano")

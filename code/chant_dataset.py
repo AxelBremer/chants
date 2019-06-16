@@ -34,10 +34,11 @@ from pycantus import Cantus
 
 class ChantDataset(data.Dataset):
 
-    def __init__(self, seq_length, representation, target, split=0.8):
+    def __init__(self, seq_length, representation, target, traintest, split=0.8):
         self._seq_length = seq_length
         self._representation = representation
         self._target = target
+        self._traintest = traintest
 
         if not os.path.isfile('data/stripped_'+ representation +'_data.json'):
             print('No converted data found, converting now')
@@ -104,13 +105,23 @@ class ChantDataset(data.Dataset):
             len(self._modes_train), len(self._modes_test), self._vocab_size, len(self._unique_modes)))
 
     def __getitem__(self, item):
-        inputs = [self._char_to_ix[ch] for ch in self._vps_train[item]]
-        if self._target == 'mode':
-            targets = self._mode_to_ix[self._modes_train[item]]
+        if self._traintest == 'train':
+            inputs = [self._char_to_ix[ch] for ch in self._vps_train[item]]
+            if self._target == 'mode':
+                targets = self._mode_to_ix[self._modes_train[item]]
+
+        if self._traintest == 'test':
+            inputs = [self._char_to_ix[ch] for ch in self._vps_test[item]]
+            if self._target == 'mode':
+                targets = self._mode_to_ix[self._modes_test[item]]
+
         return inputs, targets
 
     def __len__(self):
-        return len(self._modes_train)
+        if self._traintest == 'train':
+            return len(self._modes_train)
+        else:
+            return len(self._modes_test)
 
     def get_id(self, item):
         return self._ids[item]
@@ -119,7 +130,7 @@ class ChantDataset(data.Dataset):
         inputs = []
         targets = []
         for i, vp in enumerate(self._vps_test):
-            inputs.append([self._char_to_ix[ch] for ch in self.extract_chars(vp)])
+            inputs.append([self._char_to_ix[ch] for ch in vp])
             targets.append(self._mode_to_ix[self._modes[i]])
         return inputs, targets
 
