@@ -77,19 +77,19 @@ def train(config):
     device = torch.device(config.device)
 
     # Initialize the dataset and data loader (note the +1)
-    dataset = ChantDataset(seq_length=config.seq_length, representation=config.representation, target='mode', traintest='train')
-    data_loader = DataLoader(dataset, config.batch_size, num_workers=0)
+    dataset = ChantDataset(seq_length=config.seq_length, representation=config.representation, target='mode', traintest='train', notes=config.notes)
+    data_loader = DataLoader(dataset, config.batch_size, num_workers=4)
 
     # Initialize the dataset and data loader (note the +1)
-    test_dataset = ChantDataset(seq_length=config.seq_length, representation=config.representation, target='mode', traintest='test')
-    test_data_loader = DataLoader(dataset, config.batch_size, num_workers=0)
+    test_dataset = ChantDataset(seq_length=config.seq_length, representation=config.representation, target='mode', traintest='test', notes=config.notes)
+    test_data_loader = DataLoader(dataset, config.batch_size, num_workers=4)
 
     vocab_size = dataset._vocab_size
     mode_num = dataset._mode_num
 
     path = 'output/' + config.name    
-    model_save_string = path + '/' + str(config.seq_length) + '_' + str(config.lstm_num_hidden) + '_' + str(config.lstm_num_layers) + '_model.pt'
-    metric_save_string = path +  '/' + str(config.seq_length) + '_' + str(config.lstm_num_hidden) + '_' + str(config.lstm_num_layers) + '_metrics.json'
+    model_save_string = path + '/'+ '_' + str(config.notes) + str(config.seq_length) + '_' + str(config.lstm_num_hidden) + '_' + str(config.lstm_num_layers) + '_model.pt'
+    metric_save_string = path + '/'+ '_' + str(config.notes) + str(config.seq_length) + '_' + str(config.lstm_num_hidden) + '_' + str(config.lstm_num_layers) + '_metrics.json'
 
     os.makedirs(path, exist_ok=True)
     
@@ -220,6 +220,7 @@ if __name__ == "__main__":
     parser.add_argument('--name', type=str, default="debug", help="Name of the run")
 
     parser.add_argument('--representation', type=str, required=True, help="representation of the volpiano")
+    parser.add_argument('--notes', type=str, default='interval', help="pitch or interval")
 
     config = parser.parse_args()
 
