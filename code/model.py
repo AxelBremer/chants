@@ -36,9 +36,11 @@ class ModeModel(nn.Module):
         self.epochs = 0
 
         self.lstm = nn.LSTM(input_size = self.vocab_size,
-                            hidden_size = self.lstm_num_hidden,
-                            num_layers = self.lstm_num_layers,
-                            batch_first = True)
+                                        hidden_size = self.lstm_num_hidden,
+                                        num_layers = self.lstm_num_layers,
+                                        batch_first = True)
+
+        self.dropout = nn.Dropout(0.5)
 
         if target == 'mode':
             self.linear = nn.Linear(in_features = self.lstm_num_hidden,
@@ -54,7 +56,8 @@ class ModeModel(nn.Module):
             lstm_out, states = self.lstm(x, states)
         else:
             lstm_out, states = self.lstm(x)
-        out = self.linear(lstm_out)
+        drop_out = self.dropout(lstm_out)
+        out = self.linear(drop_out)
         # return out[:,-1,:].squeeze(), states
         return out, states
 
