@@ -156,7 +156,7 @@ class ChantDataset(data.Dataset):
         v = []
         m = []
 
-        for j, x in tqdm(enumerate(self._vps)):
+        for j, x in enumerate(self._vps):
             if len(x) > (seq_length - 1):
                 i.append(self._ids[j])
                 v.append(x)
@@ -182,6 +182,12 @@ class ChantDataset(data.Dataset):
 
         self._split_ind = math.floor(self._data_size * split)
 
+        v = []
+        print('converting to indices')
+        for vp in self._vps:
+            v.append([self._char_to_ix[ch] for ch in vp[:self._seq_length]])
+        self._vps = v
+
         self._vps_train = self._vps[:self._split_ind]
         self._modes_train = self._modes[:self._split_ind]
         self._ids_train = self._ids[:self._split_ind]
@@ -190,17 +196,19 @@ class ChantDataset(data.Dataset):
         self._modes_test = self._modes[self._split_ind:]
         self._ids_test = self._ids[self._split_ind:]
 
-        print("Initialize dataset with {} training chants, {} test chants, with vocab size of {} and {} modes.".format(
-            len(self._modes_train), len(self._modes_test), self._vocab_size, len(self._unique_modes)))
+        # print("Initialize dataset with {} training chants, {} test chants, with vocab size of {} and {} modes.".format(
+        #     len(self._modes_train), len(self._modes_test), self._vocab_size, len(self._unique_modes)))
 
     def __getitem__(self, item):
         if self._traintest == 'train':
-            inputs = [self._char_to_ix[ch] for ch in self._vps_train[item]]
+            # inputs = [self._char_to_ix[ch] for ch in self._vps_train[item][:self._seq_length]]
+            inputs = self._vps_train[item]
             if self._target == 'mode':
                 targets = self._mode_to_ix[self._modes_train[item]]
 
         if self._traintest == 'test':
-            inputs = [self._char_to_ix[ch] for ch in self._vps_test[item]]
+            # inputs = [self._char_to_ix[ch] for ch in self._vps_test[item][:self._seq_length]]
+            inputs = self._vps_test[item]
             if self._target == 'mode':
                 targets = self._mode_to_ix[self._modes_test[item]]
 
@@ -276,5 +284,5 @@ def nSplit(lst, delim, count=2):
             delimCount = 0
     return output[1:]
 
-# d = ChantDataset(20, 'word', 'mode', 'train', 'interval')
+# d = ChantDataset(30, 'neume', 'mode', 'train', 'pitch')
 # print(d[0])

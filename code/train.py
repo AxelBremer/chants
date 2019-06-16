@@ -29,6 +29,7 @@ import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
+
 from model import ModeModel
 from chant_dataset import ChantDataset
 
@@ -38,7 +39,7 @@ def load_model(model_save_string, vocab_size, mode_num):
     if os.path.isfile(model_save_string) and (model_save_string != 'debug'):
         print('Loading model')
         model = torch.load(model_save_string, map_location=config.device)
-        print('Starting from %i steps in model' %(model.steps))
+        print('Starting from %i epochs in model' %(model.epochs))
     else:
         print('No model found, creating one...')
         model = ModeModel(batch_size=config.batch_size, 
@@ -59,8 +60,11 @@ def num2hot(batch, vocab_size, device):
     # Create the output tensor and use it as index to place a one in the new tensor
     y_out = torch.zeros(shape).to(device)
     batch = batch.unsqueeze(-1)
+
+    one = torch.Tensor(np.array([1]))
+    one.to(device)
     
-    y_out.scatter_(2, batch, torch.tensor(1).to(device))
+    y_out.scatter_(2, batch, one)
 
     return y_out
 
@@ -82,7 +86,7 @@ def train(config):
 
     # Initialize the dataset and data loader (note the +1)
     test_dataset = ChantDataset(seq_length=config.seq_length, representation=config.representation, target='mode', traintest='test', notes=config.notes)
-    test_data_loader = DataLoader(dataset, config.batch_size, num_workers=4)
+    test_data_loader = DataLoader(test_dataset, config.batch_size, num_workers=4)
 
     vocab_size = dataset._vocab_size
     mode_num = dataset._mode_num
@@ -101,18 +105,16 @@ def train(config):
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.RMSprop(model.parameters(), lr=config.learning_rate)
 
-    train_accuracy = np.zeros(int(config.train_steps)+1)
-
-    out_steps = 0
+    out_epochs = 0
 
     losses = []
     accs = []
     test_losses = []
     test_accs = []
 
-    inputs_test, targets_test = dataset.get_test_set()
+    print('training')
     # Extra while loop to keep iterating over the dataset
-    while out_steps < config.train_steps:
+    while out_epochs < config.train_epochs:
         ct = 0
         running_acc = 0
         running_loss = 0
@@ -133,49 +135,62 @@ def train(config):
             loss = criterion(y_pred, y_target).to(device)
             accuracy = get_accuracy(y_target, y_pred, config)
 
-            running_acc += accuracy
-            running_loss += loss.cpu().item()
-
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            # save number of steps in the model
-            model.step()
-            out_steps += 1
+            train_acc = accuracy
+            train_loss = loss.cpu().detach().item()
 
-            if out_steps == config.train_steps:
-                # If you receive a PyTorch data-loader error, check this bug report:
-                # https://github.com/pytorch/pytorch/pull/9655
-                break
-
-        accuracy = running_acc/ct
-        loss = running_loss/ct
+        
+        print('Calculating metrics')
         with torch.no_grad():
-                test_loss = 0
-                test_acc = 0
-                ct = 0
-                for step, (test_batch_inputs, test_batch_targets) in enumerate(test_data_loader):
-                    ct += 1
-                    x = torch.stack(test_batch_inputs, dim=1).to(device)
-                    x = num2hot(x, vocab_size, device)
-                    y_target_test = test_batch_targets.to(device)
-                    y_pred_test, _ = model(x)
-                    test_loss += criterion(y_pred_test, y_target_test).item()
-                    test_acc += get_accuracy(y_target_test, y_pred_test, config)
+            # train_loss = running_loss/ct
+            # train_acc = running_acc/ct
 
-                test_loss = test_loss/ct
-                test_acc = test_acc/ct
+            test_loss = 0
+            test_acc = 0
+            ct = 0
+            for step, (test_batch_inputs, test_batch_targets) in enumerate(test_data_loader):
+                ct += 1
+                x = torch.stack(test_batch_inputs, dim=1).to(device)
+                x = num2hot(x, vocab_size, device)
+                y_target_test = test_batch_targets.to(device)
+                y_pred_test, _ = model(x)
+                test_loss += criterion(y_pred_test, y_target_test).item()
+                test_acc += get_accuracy(y_target_test, y_pred_test, config)
+
+            test_loss = test_loss/ct
+            test_acc = test_acc/ct
+
+            train_loss = 0
+            train_acc = 0
+            ct = 0
+            for step, (train_batch_inputs, train_batch_targets) in enumerate(data_loader):
+                ct += 1
+                x = torch.stack(train_batch_inputs, dim=1).to(device)
+                x = num2hot(x, vocab_size, device)
+                y_target_train = train_batch_targets.to(device)
+                y_pred_train, _ = model(x)
+                train_loss += criterion(y_pred_train, y_target_train).item()
+                train_acc += get_accuracy(y_target_train, y_pred_train, config)
+
+            train_loss = train_loss/ct
+            train_acc = train_acc/ct
+
+        # save number of epochs
+        model.next_epoch()
+        out_epochs += 1
             
-        print("[{}] Train Steps {:04d}/{:04d}, Batch Size = {},"
-            "Accuracy = {:.2f}, Loss = {:.3f}, Test Acc = {:.2f}, Test Loss = {:.3f}".format(
+        print("[{}] Total Epochs {:03d}, Current Epochs {:02d}/{:02d}, Batch Size = {},"
+            " Accuracy = {:.3f}, Loss = {:.3f}, Test Acc = {:.3f}, Test Loss = {:.3f}".format(
                 datetime.now().strftime("%Y-%m-%d %H:%M"),
-                model.steps, int(config.train_steps), config.batch_size,
-                accuracy, loss, test_acc, test_loss
+                model.epochs, out_epochs, int(config.train_epochs), config.batch_size,
+                train_acc, train_loss, test_acc, test_loss
         ))
 
-        accs.append(accuracy)
-        losses.append(loss)
+        accs.append(train_acc)
+        losses.append(train_loss)
         test_accs.append(test_acc)
         test_losses.append(test_loss)
         # Save model
@@ -205,7 +220,7 @@ if __name__ == "__main__":
     # Training params
     parser.add_argument('--batch_size', type=int, default=64, help='Number of examples to process in a batch')
     parser.add_argument('--learning_rate', type=float, default=2e-3, help='Learning rate')
-    parser.add_argument('--train_steps', type=int, default=1e6, help='Number of training steps')
+    parser.add_argument('--train_epochs', type=int, default=30, help='Number of training epochs')
     parser.add_argument('--max_norm', type=float, default=5.0, help='Max to which to clip the norm of the gradients')
 
     # It is not necessary to implement the following three params, but it may help training.

@@ -33,7 +33,7 @@ class ModeModel(nn.Module):
         self.vocab_size = vocab_size
         self.mode_num = mode_num
         self.device = device
-        self.steps = 0
+        self.epochs = 0
 
         self.lstm = nn.LSTM(input_size = self.vocab_size,
                             hidden_size = self.lstm_num_hidden,
@@ -52,5 +52,5 @@ class ModeModel(nn.Module):
         out = self.linear(lstm_out)
         return out[:,-1,:].squeeze(), states
 
-    def step(self):
-        self.steps += 1
+    def next_epoch(self):
+        self.epochs += 1
