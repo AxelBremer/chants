@@ -22,7 +22,7 @@ import torch.nn as nn
 
 class ModeModel(nn.Module):
 
-    def __init__(self, batch_size, seq_length, vocab_size, mode_num,
+    def __init__(self, batch_size, seq_length, vocab_size, mode_num, target,
                  lstm_num_hidden=256, lstm_num_layers=1, device='cuda:0'):
 
         super(ModeModel, self).__init__()
@@ -40,9 +40,14 @@ class ModeModel(nn.Module):
                             num_layers = self.lstm_num_layers,
                             batch_first = True)
 
-        self.linear = nn.Linear(in_features = self.lstm_num_hidden,
-                                out_features = self.mode_num,
-                                bias = True)
+        if target == 'mode':
+            self.linear = nn.Linear(in_features = self.lstm_num_hidden,
+                                    out_features = self.mode_num,
+                                    bias = True)
+        if target == 'next':
+            self.linear = nn.Linear(in_features = self.lstm_num_hidden,
+                                    out_features = self.vocab_size,
+                                    bias = True)
 
     def forward(self, x, states=None):
         if states != None:
@@ -50,7 +55,8 @@ class ModeModel(nn.Module):
         else:
             lstm_out, states = self.lstm(x)
         out = self.linear(lstm_out)
-        return out[:,-1,:].squeeze(), states
+        # return out[:,-1,:].squeeze(), states
+        return out, states
 
     def next_epoch(self):
         self.epochs += 1

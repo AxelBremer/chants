@@ -45,11 +45,19 @@ def load_model(model_save_string, vocab_size, mode_num):
         model = ModeModel(batch_size=config.batch_size, 
                                     seq_length=config.seq_length, 
                                     vocab_size=vocab_size,
-                                    mode_num=mode_num, 
+                                    mode_num=mode_num,
+                                    target=config.target, 
                                     lstm_num_hidden=config.lstm_num_hidden, 
                                     lstm_num_layers=config.lstm_num_layers, 
                                     device=config.device)
     return model
+
+def get_char_from_output(output, temperature, method):
+    if method == 'greedy':
+        return torch.tensor([[torch.argmax(output).cpu().numpy().item()]], dtype=torch.long)
+    else:
+        probs = torch.softmax(output.squeeze()/temperature, dim=0)
+    return torch.tensor([[torch.multinomial(probs,1).cpu().numpy().item()]])
 
 
 def num2hot(batch, vocab_size, device):
@@ -61,19 +69,18 @@ def num2hot(batch, vocab_size, device):
     y_out = torch.zeros(shape).to(device)
     batch = batch.unsqueeze(-1)
 
-    one = torch.Tensor(np.array([1]))
-    one.to(device)
-    
-    y_out.scatter_(2, batch, one)
+    y_out.scatter_(2, batch, torch.tensor(1).to(device))
 
     return y_out
 
 
 def get_accuracy(y_target, y_pred, config):
     # Many to many
-    # return (y_pred.argmax(dim=2) == y_target).sum().cpu().numpy().item()/(config.seq_length * config.batch_size)
+    if config.target == 'next':
+        return (y_pred.argmax(dim=2) == y_target).sum().cpu().numpy().item()/(config.seq_length * config.batch_size)
     # Many to one
-    return (y_pred.argmax(dim=1) == y_target).sum().cpu().numpy().item()/(config.batch_size)
+    if config.target == 'mode':
+        return (y_pred.argmax(dim=1) == y_target).sum().cpu().numpy().item()/(config.batch_size)
 
 
 def train(config):
@@ -81,11 +88,11 @@ def train(config):
     device = torch.device(config.device)
 
     # Initialize the dataset and data loader (note the +1)
-    dataset = ChantDataset(seq_length=config.seq_length, representation=config.representation, target='mode', traintest='train', notes=config.notes)
+    dataset = ChantDataset(seq_length=config.seq_length, representation=config.representation, target=config.target, traintest='train', notes=config.notes)
     data_loader = DataLoader(dataset, config.batch_size, num_workers=4)
 
     # Initialize the dataset and data loader (note the +1)
-    test_dataset = ChantDataset(seq_length=config.seq_length, representation=config.representation, target='mode', traintest='test', notes=config.notes)
+    test_dataset = ChantDataset(seq_length=config.seq_length, representation=config.representation, target=config.target, traintest='test', notes=config.notes)
     test_data_loader = DataLoader(test_dataset, config.batch_size, num_workers=4)
 
     vocab_size = dataset._vocab_size
@@ -115,32 +122,26 @@ def train(config):
     print('training')
     # Extra while loop to keep iterating over the dataset
     while out_epochs < config.train_epochs:
-        ct = 0
-        running_acc = 0
-        running_loss = 0
         for step, (batch_inputs, batch_targets) in enumerate(data_loader):
-            ct += 1
-
             x = torch.stack(batch_inputs, dim=1).to(device)
             x = num2hot(x, vocab_size, device)
 
-            # Many to many
-            # y_target = batch_targets.unsqueeze(1).repeat(1,config.seq_length).to(device)
+            if config.target == 'mode':
+                # Many to many
+                # y_target = batch_targets.unsqueeze(1).repeat(1,config.seq_length).to(device)
+                # Many to one
+                y_target = batch_targets.to(device)
+                y_pred, _ = model(x)
+                loss = criterion(y_pred, y_target).to(device)
 
-            # Many to one
-            y_target = batch_targets.to(device)
-
-            y_pred, _ = model(x)
-
-            loss = criterion(y_pred, y_target).to(device)
-            accuracy = get_accuracy(y_target, y_pred, config)
+            if config.target == 'next':
+                y_target = torch.stack(batch_targets, dim=1).to(device)
+                y_pred, _ = model(x)
+                loss = criterion(y_pred.transpose(2,1), y_target).to(device)
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
-            train_acc = accuracy
-            train_loss = loss.cpu().detach().item()
 
         
         print('Calculating metrics')
@@ -155,9 +156,20 @@ def train(config):
                 ct += 1
                 x = torch.stack(test_batch_inputs, dim=1).to(device)
                 x = num2hot(x, vocab_size, device)
-                y_target_test = test_batch_targets.to(device)
-                y_pred_test, _ = model(x)
-                test_loss += criterion(y_pred_test, y_target_test).item()
+                
+                if config.target == 'mode':
+                    # Many to many
+                    # y_target = batch_targets.unsqueeze(1).repeat(1,config.seq_length).to(device)
+                    # Many to one
+                    y_target_test = test_batch_targets.to(device)
+                    y_pred_test, _ = model(x)
+                    test_loss += criterion(y_pred_test, y_target_test).item()
+
+                if config.target == 'next':
+                    y_target_test = torch.stack(test_batch_targets, dim=1).to(device)
+                    y_pred_test, _ = model(x)
+                    test_loss += criterion(y_pred_test.transpose(2,1), y_target_test).item()
+
                 test_acc += get_accuracy(y_target_test, y_pred_test, config)
 
             test_loss = test_loss/ct
@@ -170,9 +182,20 @@ def train(config):
                 ct += 1
                 x = torch.stack(train_batch_inputs, dim=1).to(device)
                 x = num2hot(x, vocab_size, device)
-                y_target_train = train_batch_targets.to(device)
-                y_pred_train, _ = model(x)
-                train_loss += criterion(y_pred_train, y_target_train).item()
+                
+                if config.target == 'mode':
+                    # Many to many
+                    # y_target = batch_targets.unsqueeze(1).repeat(1,config.seq_length).to(device)
+                    # Many to one
+                    y_target_train = train_batch_targets.to(device)
+                    y_pred_train, _ = model(x)
+                    train_loss += criterion(y_pred_train, y_target_train).item()
+
+                if config.target == 'next':
+                    y_target_train = torch.stack(train_batch_targets, dim=1).to(device)
+                    y_pred_train, _ = model(x)
+                    train_loss += criterion(y_pred_train.transpose(2,1), y_target_train).item()
+
                 train_acc += get_accuracy(y_target_train, y_pred_train, config)
 
             train_loss = train_loss/ct
@@ -236,6 +259,8 @@ if __name__ == "__main__":
 
     parser.add_argument('--representation', type=str, required=True, help="representation of the volpiano")
     parser.add_argument('--notes', type=str, default='interval', help="pitch or interval")
+
+    parser.add_argument('--target', type=str, default='next', help="target [next] note or [mode]")
 
     config = parser.parse_args()
 

@@ -157,7 +157,7 @@ class ChantDataset(data.Dataset):
         m = []
 
         for j, x in enumerate(self._vps):
-            if len(x) > (seq_length - 1):
+            if len(x) > (seq_length):
                 i.append(self._ids[j])
                 v.append(x)
                 m.append(self._modes[j])
@@ -185,7 +185,7 @@ class ChantDataset(data.Dataset):
         v = []
         print('converting to indices')
         for vp in self._vps:
-            v.append([self._char_to_ix[ch] for ch in vp[:self._seq_length]])
+            v.append([self._char_to_ix[ch] for ch in vp[:self._seq_length+1]])
         self._vps = v
 
         self._vps_train = self._vps[:self._split_ind]
@@ -202,15 +202,19 @@ class ChantDataset(data.Dataset):
     def __getitem__(self, item):
         if self._traintest == 'train':
             # inputs = [self._char_to_ix[ch] for ch in self._vps_train[item][:self._seq_length]]
-            inputs = self._vps_train[item]
+            inputs = self._vps_train[item][:self._seq_length]
             if self._target == 'mode':
                 targets = self._mode_to_ix[self._modes_train[item]]
+            if self._target == 'next':
+                targets = self._vps_train[item][1:self._seq_length+1]
 
         if self._traintest == 'test':
             # inputs = [self._char_to_ix[ch] for ch in self._vps_test[item][:self._seq_length]]
-            inputs = self._vps_test[item]
+            inputs = self._vps_test[item][:self._seq_length]
             if self._target == 'mode':
                 targets = self._mode_to_ix[self._modes_test[item]]
+            if self._target == 'next':
+                targets = self._vps_test[item][1:self._seq_length+1]
 
         return inputs, targets
 
