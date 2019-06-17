@@ -130,6 +130,8 @@ class ChantDataset(data.Dataset):
             l = []
             for vp in tqdm(self._vps):
                 l.append(self.extract_chars(vp))
+                print(vp)
+                print(l[-1])
 
             self._vps = l
 
@@ -239,43 +241,49 @@ class ChantDataset(data.Dataset):
     def extract_chars(self, vp):
         if self._representation == 'raw':
             if self._notes == 'interval':
-                return to_intervals(volpiano_to_midi(vp))
+                return self.get_intervals(vp, 0)
             elif self._notes == 'pitch':
                 l = [ch for ch in vp]
             return l
         elif self._representation == 'neume':
             if self._notes == 'interval':
-                return get_intervals(vp, 1)
+                return self.get_intervals(vp, 1)
             elif self._notes == 'pitch':
                 l =  [i.strip("-") for i in vp.split("-") if i and i.strip("-") != '1']
                 return l
         elif self._representation == 'syllable':
             if self._notes == 'interval':
-                return get_intervals(vp, 1)
+                return self.get_intervals(vp, 2)
             elif self._notes == 'pitch':
                 l = [i.strip("-") for i in vp.split("--") if i and i.strip("-") != '1']
                 return l
         elif self._representation == 'word':
             if self._notes == 'interval':
-                return get_intervals(vp, 1)
+                return self.get_intervals(vp, 3)
             elif self._notes == 'pitch':
                 l = [i.strip("-") for i in vp.split("---") if i and i.strip("-") != '1']
                 return l
 
-def get_intervals(vp, count):
-    inter = to_intervals(volpiano_to_midi(vp))
-    midi = vp_to_midi(vp)
-    inter[0] = 0
-    inter = list(reversed(inter))
-    l = nSplit(midi, '-', 1)
-    for i,n in enumerate(l):
-        s = ''
-        for ch in n:
-            s = s+str(inter.pop())
-        l[i] = s
-    return l
+    def get_intervals(self, vp, count):
+        inter = to_intervals(volpiano_to_midi(vp))
+        midi = vp_to_midi(vp)
+        inter[0] = 0
+        inter = list(reversed(inter))
+        if self._representation != 'raw':
+            l = nSplit(midi, '-', count)
+        else:
+            l = [[x] for x in midi]
+        for i,n in enumerate(l):
+            s = ''
+            for ch in n:
+                if ch == '-':
+                    s = s + ch
+                else:
+                    s = s+str(inter.pop())
+            l[i] = s
+        return l
 
-def nSplit(lst, delim, count=2):
+def nSplit(lst, delim, count):
     output = [[]]
     delimCount = 0
     for item in lst:
@@ -289,5 +297,5 @@ def nSplit(lst, delim, count=2):
             delimCount = 0
     return output[1:]
 
-# d = ChantDataset(30, 'syllable', 'mode', 'train', 'interval')
-# print(d[0])
+d = ChantDataset(30, 'word', 'mode', 'train', 'interval')
+print(d[0])
