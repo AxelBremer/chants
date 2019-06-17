@@ -157,10 +157,11 @@ class ChantDataset(data.Dataset):
         m = []
 
         for j, x in enumerate(self._vps):
-            if len(x) > (seq_length):
-                i.append(self._ids[j])
-                v.append(x)
-                m.append(self._modes[j])
+            if x != None:
+                if len(x) > (seq_length):
+                    i.append(self._ids[j])
+                    v.append(x)
+                    m.append(self._modes[j])
 
         self._ids = i
         self._vps = v
@@ -248,7 +249,7 @@ class ChantDataset(data.Dataset):
             elif self._notes == 'pitch':
                 l =  [i.strip("-") for i in vp.split("-") if i and i.strip("-") != '1']
                 return l
-        elif self._representation == 'syl':
+        elif self._representation == 'syllable':
             if self._notes == 'interval':
                 return get_intervals(vp, 1)
             elif self._notes == 'pitch':
@@ -288,5 +289,5 @@ def nSplit(lst, delim, count=2):
             delimCount = 0
     return output[1:]
 
-# d = ChantDataset(30, 'neume', 'mode', 'train', 'pitch')
+# d = ChantDataset(30, 'syllable', 'mode', 'train', 'interval')
 # print(d[0])
