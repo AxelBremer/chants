@@ -130,8 +130,6 @@ class ChantDataset(data.Dataset):
             l = []
             for vp in tqdm(self._vps):
                 l.append(self.extract_chars(vp))
-                print(vp)
-                print(l[-1])
 
             self._vps = l
 
