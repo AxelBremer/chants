@@ -295,5 +295,5 @@ def nSplit(lst, delim, count):
             delimCount = 0
     return output[1:]
 
-d = ChantDataset(30, 'word', 'mode', 'train', 'interval')
-print(d[0])
+# d = ChantDataset(30, 'word', 'mode', 'train', 'interval')
+# print(d[0])
