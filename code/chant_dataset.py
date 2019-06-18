@@ -22,11 +22,13 @@ import os
 import re
 import math
 import numpy as np
+import torch
 import torch.utils.data as data
 
 from collections import Counter
 
 import json
+import pickle
 import pandas as pd
 from tqdm import tqdm
 from pycantus import Cantus
@@ -189,6 +191,22 @@ class ChantDataset(data.Dataset):
             v.append([self._char_to_ix[ch] for ch in vp[:self._seq_length+1]])
         self._vps = v
 
+        inputpath = 'data/inputs/'+ notes +'_' + str(seq_length) + '_'+ representation 
+        if not os.path.isfile(inputpath +'_input.txt'):
+            print('saving input to file')
+            o = num2hot(torch.Tensor(self._vps), self._vocab_size)
+            torch.save(o,inputpath+'_input.pt')
+            with open(inputpath + '_vocab.pckl', 'wb') as fp:
+                pickle.dump(self._vocab, fp)
+
+        #     with open(inputpath+'_input.txt', 'a') as fp:
+        #         for vp in self._vps:
+        #             p = torch.Tensor(vp).unsqueeze(0)
+        #             t = num2hot(p, self._vocab_size)
+        #             s = t.numpy().tostring()
+        #             fp.write(s)
+        
+
         self._vps_train = self._vps[:self._split_ind]
         self._modes_train = self._modes[:self._split_ind]
         self._ids_train = self._ids[:self._split_ind]
@@ -295,5 +313,18 @@ def nSplit(lst, delim, count):
             delimCount = 0
     return output[1:]
 
-# d = ChantDataset(30, 'word', 'mode', 'train', 'interval')
-# print(d[0])
+def num2hot(batch, vocab_size):
+    # Get the shape of the input and add the vocabulary size in a new dimension
+    shape = list(batch.shape)
+    shape = shape + [vocab_size]
+
+    # Create the output tensor and use it as index to place a one in the new tensor
+    y_out = torch.zeros(shape)
+    batch = batch.unsqueeze(-1)
+
+    y_out.scatter_(2, batch.long(), torch.tensor(1))
+
+    return y_out
+
+d = ChantDataset(20, 'raw', 'next', 'train', 'interval')
+print(d[0])

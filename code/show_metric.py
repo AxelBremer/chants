@@ -33,6 +33,7 @@ def main(config):
 
             plt.subplot(1,2,2)
             plt.title('Max Test Accuracy:{:.3f} at epoch {}'.format(max_test_acc, max_test_acc_ind))
+            plt.ylim(0,1)
             plt.plot(range(len(acc)), acc)
             plt.plot(range(len(test_acc)), test_acc)
             plt.legend(['Training Accuracy', 'Test Accuracy'])
