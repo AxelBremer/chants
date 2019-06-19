@@ -192,7 +192,7 @@ class ChantDataset(data.Dataset):
         self._vps = v
 
         inputpath = 'data/inputs/'+ notes +'_' + str(seq_length) + '_'+ representation 
-        if not os.path.isfile(inputpath +'_input.txt'):
+        if not os.path.isfile(inputpath +'_input.pt'):
             print('saving input to file')
             o = num2hot(torch.Tensor(self._vps), self._vocab_size)
             torch.save(o,inputpath+'_input.pt')
@@ -326,5 +326,5 @@ def num2hot(batch, vocab_size):
 
     return y_out
 
-d = ChantDataset(20, 'raw', 'next', 'train', 'interval')
-print(d[0])
+# d = ChantDataset(20, 'raw', 'next', 'train', 'interval')
+# print(d[0])

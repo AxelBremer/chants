@@ -34,23 +34,26 @@ from model import ModeModel
 from chant_dataset import ChantDataset
 
 ################################################################################
-def load_model(model_save_string, vocab_size, mode_num):
+def load_model(model_save_string, metric_save_string, vocab_size, mode_num):
     # Initialize the model that we are going to use
     if os.path.isfile(model_save_string) and (model_save_string != 'debug'):
         print('Loading model')
         model = torch.load(model_save_string, map_location=config.device)
         print('Starting from %i epochs in model' %(model.epochs))
+        with open(metric_save_string, 'r') as fp:
+            metrics = json.load(fp)
     else:
         print('No model found, creating one...')
         model = ModeModel(batch_size=config.batch_size, 
                                     seq_length=config.seq_length, 
                                     vocab_size=vocab_size,
                                     mode_num=mode_num,
-                                    target=config.target, 
+                                    target=config.target,
                                     lstm_num_hidden=config.lstm_num_hidden, 
                                     lstm_num_layers=config.lstm_num_layers, 
                                     device=config.device)
-    return model
+        metrics = d = {'loss':[], 'accuracy':[], 'test_loss':[], 'test_accuracy':[]}
+    return model, metrics
 
 def get_char_from_output(output, temperature, method):
     if method == 'greedy':
@@ -104,7 +107,7 @@ def train(config):
 
     os.makedirs(path, exist_ok=True)
     
-    model = load_model(model_save_string, vocab_size, mode_num)
+    model, metrics = load_model(model_save_string, metric_save_string, vocab_size, mode_num)
         
     model.to(device)
 
@@ -113,11 +116,6 @@ def train(config):
     optimizer = torch.optim.RMSprop(model.parameters(), lr=config.learning_rate)
 
     out_epochs = 0
-
-    losses = []
-    accs = []
-    test_losses = []
-    test_accs = []
 
     print('training')
     # Extra while loop to keep iterating over the dataset
@@ -212,16 +210,15 @@ def train(config):
                 train_acc, train_loss, test_acc, test_loss
         ))
 
-        accs.append(train_acc)
-        losses.append(train_loss)
-        test_accs.append(test_acc)
-        test_losses.append(test_loss)
+        metrics['accuracy'].append(train_acc)
+        metrics['loss'].append(train_loss)
+        metrics['test_accuracy'].append(test_acc)
+        metrics['test_loss'].append(test_loss)
         # Save model
         torch.save(model, model_save_string)
         # Save metrics in file
-        d = {'loss':losses, 'accuracy':accs, 'test_loss':test_losses, 'test_accuracy':test_accs}
         with open(metric_save_string, 'w') as fp:
-            json.dump(d,fp)
+            json.dump(metrics,fp)
         print('Saved model and metrics')
     print('Done training.')
 
