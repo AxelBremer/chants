@@ -149,10 +149,7 @@ class ChantDataset(data.Dataset):
             self._modes = d['modes']
             self._vps = d['vps']
 
-        # inds = [i for i, x in enumerate(self._vps) if ((len(x) > (seq_length - 1)))]
-        # self._ids = [self._ids[i] for i in inds]
-        # self._vps = [self._vps[i][:seq_length] for i in inds]
-        # self._modes = [self._modes[i] for i in inds]
+
         inds = []
         i = []
         v = []
@@ -277,27 +274,29 @@ class ChantDataset(data.Dataset):
             if self._notes == 'interval':
                 vp = self.get_intervals(vp)
             l =  [i.strip("-") for i in vp.split("-") if i and i.strip("-") != '1']
+            # if l[-1] == '': l = l[:-1]
             return l
         elif self._representation == 'syllable':
             if self._notes == 'interval':
-                return self.get_intervals(vp)
-            elif self._notes == 'pitch':
-                l = [i.strip("-") for i in vp.split("--") if i and i.strip("-") != '1']
-                return l
+                vp = self.get_intervals(vp)
+            l = [i.strip("-") for i in vp.split("--") if i and i.strip("-") != '1']
+            # if l[-1] == '': l = l[:-1]
+            return l
         elif self._representation == 'word':
             if self._notes == 'interval':
-                return self.get_intervals(vp)
-            elif self._notes == 'pitch':
-                l = [i.strip("-") for i in vp.split("---") if i and i.strip("-") != '1']
-                return l
+                vp = self.get_intervals(vp)
+            l = [i.strip("-") for i in vp.split("---") if i and i.strip("-") != '1']
+            # if l[-1] == '': l = l[:-1]
+            return l
 
     def get_intervals(self, vp):
         inter = to_intervals(volpiano_to_midi(vp), encode=True)
         midi = vp_to_midi(vp)
+        if vp[-1] in ['3','4']: midi.append(vp[-1])
         s = ''
         ct = 0
         for i,n in enumerate(midi):
-            if n != '-':
+            if n not in ['-','3','4']:
                 s += inter[ct]
                 ct += 1
             else:
@@ -320,4 +319,4 @@ def num2hot(batch, vocab_size):
 
     return y_out
 
-# d = ChantDataset(20, 'neume', 'next', 'train', 'interval')
+# d = ChantDataset(20, 'syllable', 'next', 'train', 'interval')

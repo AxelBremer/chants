@@ -99,9 +99,9 @@ def train(config):
     print(f'Loaded dataset with {dataset._data_size} chants and a {config.representation} vocab size of {vocab_size}.')
 
     path = 'output/' + config.name    
-    model_save_string = path + '/' + str(config.notes) + '_' + str(config.seq_length) + '_' + str(config.lstm_num_hidden) + '_' + str(config.lstm_num_layers) + '_model.pt'
-    weight_save_string = path + '/' + str(config.notes) + '_' + str(config.seq_length) + '_' + str(config.lstm_num_hidden) + '_' + str(config.lstm_num_layers) + '_weights.pt'
-    metric_save_string = path + '/' + str(config.notes) + '_' + str(config.seq_length) + '_' + str(config.lstm_num_hidden) + '_' + str(config.lstm_num_layers) + '_metrics.json'
+    model_save_string = path + '/model.pt'
+    weight_save_string = path + '/weights.pt'
+    metric_save_string = path + '/metrics.json'
 
     os.makedirs(path, exist_ok=True)
     
