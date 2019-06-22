@@ -34,6 +34,7 @@ class ModeModel(nn.Module):
         self.mode_num = mode_num
         self.device = device
         self.epochs = 0
+        self.target = target
 
         self.lstm = nn.LSTM(input_size = self.vocab_size,
                                         hidden_size = self.lstm_num_hidden,
@@ -51,15 +52,37 @@ class ModeModel(nn.Module):
                                     out_features = self.vocab_size,
                                     bias = True)
 
+        if target == 'both':
+            self.mode_layer = nn.Linear(in_features = self.lstm_num_hidden,
+                                        out_features = self.mode_num,
+                                        bias = True)
+            self.next_layer = nn.Linear(in_features = self.lstm_num_hidden,
+                                    out_features = self.vocab_size,
+                                    bias = True)
+
     def forward(self, x, states=None):
-        if states != None:
-            lstm_out, states = self.lstm(x, states)
+        if self.target == 'both':
+            if states != None:
+                lstm_out, states = self.lstm(x, states)
+            else:
+                lstm_out, states = self.lstm(x)
+
+            mode_out = self.mode_layer(self.dropout(lstm_out))[:,-1,:].squeeze()
+            next_out = self.next_layer(self.dropout(lstm_out))
+            # return out[:,-1,:].squeeze(), states
+            return next_out, mode_out, states
         else:
-            lstm_out, states = self.lstm(x)
-        drop_out = self.dropout(lstm_out)
-        out = self.linear(drop_out)
-        # return out[:,-1,:].squeeze(), states
-        return out, states
+            if states != None:
+                lstm_out, states = self.lstm(x, states)
+            else:
+                lstm_out, states = self.lstm(x)
+            drop_out = self.dropout(lstm_out)
+            out = self.linear(drop_out)
+            # return out[:,-1,:].squeeze(), states
+            if self.target == 'mode':
+                return '', out, states
+            if self.target == 'next':
+                return out, '', states
 
     def next_epoch(self):
         self.epochs += 1

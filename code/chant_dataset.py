@@ -32,7 +32,7 @@ import pickle
 import pandas as pd
 from tqdm import tqdm
 from pycantus import Cantus
-from pycantus import to_intervals, volpiano_characters, volpiano_to_midi
+from pycantus import to_intervals, volpiano_characters, volpiano_to_midi, get_interval_representation
 
 _VOLPIANO_TO_MIDI = {
     "8": 53, # F
@@ -191,22 +191,6 @@ class ChantDataset(data.Dataset):
             v.append([self._char_to_ix[ch] for ch in vp[:self._seq_length+1]])
         self._vps = v
 
-        inputpath = 'data/inputs/'+ notes +'_' + str(seq_length) + '_'+ representation 
-        if not os.path.isfile(inputpath +'_input.pt'):
-            print('saving input to file')
-            o = num2hot(torch.Tensor(self._vps), self._vocab_size)
-            torch.save(o,inputpath+'_input.pt')
-            with open(inputpath + '_vocab.pckl', 'wb') as fp:
-                pickle.dump(self._vocab, fp)
-
-        #     with open(inputpath+'_input.txt', 'a') as fp:
-        #         for vp in self._vps:
-        #             p = torch.Tensor(vp).unsqueeze(0)
-        #             t = num2hot(p, self._vocab_size)
-        #             s = t.numpy().tostring()
-        #             fp.write(s)
-        
-
         self._vps_train = self._vps[:self._split_ind]
         self._modes_train = self._modes[:self._split_ind]
         self._ids_train = self._ids[:self._split_ind]
@@ -215,27 +199,55 @@ class ChantDataset(data.Dataset):
         self._modes_test = self._modes[self._split_ind:]
         self._ids_test = self._ids[self._split_ind:]
 
-        # print("Initialize dataset with {} training chants, {} test chants, with vocab size of {} and {} modes.".format(
-        #     len(self._modes_train), len(self._modes_test), self._vocab_size, len(self._unique_modes)))
+        inputpath = 'data/inputs/'+ notes +'_' + str(seq_length) + '_'+ representation 
+        if not os.path.isfile(inputpath +'_next_corpus_train.txt'):
+            print('saving input to file')
+            input_corpus = [' '.join([str(i) for i in vp[:-1]]) for vp in self._vps_train]
+            next_target_corpus = [' '.join([str(i) for i in vp[1:]]) for vp in self._vps_train]
+            mode_target_corpus = [' '.join([str(mode) for i in range(seq_length)]) for mode in self._modes_train]
+            
+            next_corpus = '\n'.join(f'{w}\t{t}' for w,t in zip(input_corpus, next_target_corpus))
+            mode_corpus = '\n'.join(f'{w}\t{t}' for w,t in zip(input_corpus, mode_target_corpus))
+            with open(inputpath + '_next_corpus_train.txt', 'w') as f:
+                f.write(next_corpus)
+
+            with open(inputpath + '_mode_corpus_train.txt', 'w') as f:
+                f.write(mode_corpus)
+
+            with open(inputpath + '_vocab.pckl', 'wb') as fp:
+                pickle.dump(self._vocab, fp)
+
+        if not os.path.isfile(inputpath +'_next_corpus_test.txt'):
+            print('saving input to file')
+            input_corpus = [' '.join([str(i) for i in vp[:-1]]) for vp in self._vps_test]
+            next_target_corpus = [' '.join([str(i) for i in vp[1:]]) for vp in self._vps_test]
+            mode_target_corpus = [' '.join([str(mode) for i in range(seq_length)]) for mode in self._modes_test]
+            
+            next_corpus = '\n'.join(f'{w}\t{t}' for w,t in zip(input_corpus, next_target_corpus))
+            mode_corpus = '\n'.join(f'{w}\t{t}' for w,t in zip(input_corpus, mode_target_corpus))
+            with open(inputpath + '_next_corpus_test.txt', 'w') as f:
+                f.write(next_corpus)
+
+            with open(inputpath + '_mode_corpus_test.txt', 'w') as f:
+                f.write(mode_corpus)
+
+            with open(inputpath + '_vocab.pckl', 'wb') as fp:
+                pickle.dump(self._vocab, fp)
 
     def __getitem__(self, item):
         if self._traintest == 'train':
             # inputs = [self._char_to_ix[ch] for ch in self._vps_train[item][:self._seq_length]]
             inputs = self._vps_train[item][:self._seq_length]
-            if self._target == 'mode':
-                targets = self._mode_to_ix[self._modes_train[item]]
-            if self._target == 'next':
-                targets = self._vps_train[item][1:self._seq_length+1]
+            mode_targets = self._mode_to_ix[self._modes_train[item]]
+            next_targets = self._vps_train[item][1:self._seq_length+1]
 
         if self._traintest == 'test':
             # inputs = [self._char_to_ix[ch] for ch in self._vps_test[item][:self._seq_length]]
             inputs = self._vps_test[item][:self._seq_length]
-            if self._target == 'mode':
-                targets = self._mode_to_ix[self._modes_test[item]]
-            if self._target == 'next':
-                targets = self._vps_test[item][1:self._seq_length+1]
+            mode_targets = self._mode_to_ix[self._modes_test[item]]
+            next_targets = self._vps_test[item][1:self._seq_length+1]
 
-        return inputs, targets
+        return inputs, next_targets, mode_targets
 
     def __len__(self):
         if self._traintest == 'train':
@@ -257,61 +269,43 @@ class ChantDataset(data.Dataset):
     def extract_chars(self, vp):
         if self._representation == 'raw':
             if self._notes == 'interval':
-                return self.get_intervals(vp, 0)
+                return self.get_intervals(vp)
             elif self._notes == 'pitch':
                 l = [ch for ch in vp]
             return l
         elif self._representation == 'neume':
             if self._notes == 'interval':
-                return self.get_intervals(vp, 1)
-            elif self._notes == 'pitch':
-                l =  [i.strip("-") for i in vp.split("-") if i and i.strip("-") != '1']
-                return l
+                vp = self.get_intervals(vp)
+            l =  [i.strip("-") for i in vp.split("-") if i and i.strip("-") != '1']
+            return l
         elif self._representation == 'syllable':
             if self._notes == 'interval':
-                return self.get_intervals(vp, 2)
+                return self.get_intervals(vp)
             elif self._notes == 'pitch':
                 l = [i.strip("-") for i in vp.split("--") if i and i.strip("-") != '1']
                 return l
         elif self._representation == 'word':
             if self._notes == 'interval':
-                return self.get_intervals(vp, 3)
+                return self.get_intervals(vp)
             elif self._notes == 'pitch':
                 l = [i.strip("-") for i in vp.split("---") if i and i.strip("-") != '1']
                 return l
 
-    def get_intervals(self, vp, count):
-        inter = to_intervals(volpiano_to_midi(vp))
+    def get_intervals(self, vp):
+        inter = to_intervals(volpiano_to_midi(vp), encode=True)
         midi = vp_to_midi(vp)
-        inter[0] = 0
-        inter = list(reversed(inter))
-        if self._representation != 'raw':
-            l = nSplit(midi, '-', count)
-        else:
-            l = [[x] for x in midi]
-        for i,n in enumerate(l):
-            s = ''
-            for ch in n:
-                if ch == '-':
-                    s = s + ch
-                else:
-                    s = s+str(inter.pop())
-            l[i] = s
-        return l
-
-def nSplit(lst, delim, count):
-    output = [[]]
-    delimCount = 0
-    for item in lst:
-        if item == delim:
-            delimCount += 1
-        elif delimCount >= count:
-            output.append([item])
-            delimCount = 0
-        else:
-            output[-1].append(item)
-            delimCount = 0
-    return output[1:]
+        s = ''
+        ct = 0
+        for i,n in enumerate(midi):
+            if n != '-':
+                s += inter[ct]
+                ct += 1
+            else:
+                s += n
+        return s
+    
+    def convert_to_string(self, char_ix):
+        return ''.join(self._ix_to_char[ix] for ix in char_ix)
 
 def num2hot(batch, vocab_size):
     # Get the shape of the input and add the vocabulary size in a new dimension
@@ -326,5 +320,4 @@ def num2hot(batch, vocab_size):
 
     return y_out
 
-# d = ChantDataset(20, 'raw', 'next', 'train', 'interval')
-# print(d[0])
+# d = ChantDataset(20, 'neume', 'next', 'train', 'interval')
