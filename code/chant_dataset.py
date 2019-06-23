@@ -184,6 +184,7 @@ class ChantDataset(data.Dataset):
 
         v = []
         print('converting to indices')
+        print(self._vocab_size)
         for vp in self._vps:
             v.append([self._char_to_ix[ch] for ch in vp[:self._seq_length+1]])
         self._vps = v
@@ -319,4 +320,4 @@ def num2hot(batch, vocab_size):
 
     return y_out
 
-# d = ChantDataset(20, 'syllable', 'next', 'train', 'interval')
+# d = ChantDataset(20, 'neume', 'next', 'train', 'interval')

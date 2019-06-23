@@ -44,9 +44,17 @@ class ModeModel(nn.Module):
         self.dropout = nn.Dropout(0.5)
 
         if target == 'mode':
-            self.linear = nn.Linear(in_features = self.lstm_num_hidden,
-                                    out_features = self.mode_num,
-                                    bias = True)
+            # self.linear = nn.Linear(in_features = self.lstm_num_hidden,
+            #                         out_features = self.mode_num,
+            #                         bias = True)
+            self.linear = nn.Sequential(nn.Linear(in_features = self.lstm_num_hidden,
+                                                  out_features = 512,
+                                                  bias = True),
+                                        nn.LeakyReLU(0.2),
+                                        nn.Dropout(0.5),
+                                        nn.Linear(in_features = 512,
+                                                  out_features = self.mode_num,
+                                                  bias = True))
         if target == 'next':
             self.linear = nn.Linear(in_features = self.lstm_num_hidden,
                                     out_features = self.vocab_size,
@@ -80,7 +88,7 @@ class ModeModel(nn.Module):
             out = self.linear(drop_out)
             # return out[:,-1,:].squeeze(), states
             if self.target == 'mode':
-                return '', out, states
+                return '', out[:,-1,:].squeeze(), states
             if self.target == 'next':
                 return out, '', states
 
