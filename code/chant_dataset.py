@@ -107,7 +107,7 @@ def vp_to_midi(volpiano, skip_accidentals=False):
             pass
         elif char in _VOLPIANO_TO_MIDI:
             midi.append(_VOLPIANO_TO_MIDI[char])
-        elif char == '-':
+        elif char in ['-']:
             midi.append(char)
     return midi
 
@@ -128,6 +128,7 @@ class ChantDataset(data.Dataset):
             self._ids = d['ids']
             self._modes = d['modes']
             self._vps = d['vps']
+            self._genres = d['genres']
 
             l = []
             for vp in tqdm(self._vps):
@@ -148,12 +149,14 @@ class ChantDataset(data.Dataset):
             self._ids = d['ids']
             self._modes = d['modes']
             self._vps = d['vps']
+            self._genres = d['genres']
 
 
         inds = []
         i = []
         v = []
         m = []
+        g = []
 
         for j, x in enumerate(self._vps):
             if x != None:
@@ -161,22 +164,34 @@ class ChantDataset(data.Dataset):
                     i.append(self._ids[j])
                     v.append(x)
                     m.append(self._modes[j])
+                    g.append(str(self._genres[j]))
 
         self._ids = i
         self._vps = v
         self._modes = m
+        self._genres = g
         self._unique_modes = list(set(self._modes))
         self._mode_num = len(self._unique_modes)
+        self._unique_genres = list(set(self._genres))
+        self._genre_num = len(self._unique_genres)
 
         flat_vps = [item for sublist in self._vps for item in sublist if item]
         self._vocab = list(set(flat_vps))
         self._vocab.sort()
+
+        self._unique_genres.sort()
+        self._unique_modes.sort()
 
         self._char_to_ix = {ch: i for i, ch in enumerate(self._vocab)}
         self._ix_to_char = {i: ch for i, ch in enumerate(self._vocab)}
 
         self._mode_to_ix = {m: i for i, m in enumerate(self._unique_modes)}
         self._ix_to_mode = {i: m for i, m in enumerate(self._unique_modes)}
+
+        self._genre_to_ix = {m: i for i, m in enumerate(self._unique_genres)}
+        self._ix_to_genre = {i: m for i, m in enumerate(self._unique_genres)}
+
+        print(self._ix_to_genre)
 
         self._data_size, self._vocab_size = len(self._modes), len(self._vocab)
 
@@ -192,45 +207,66 @@ class ChantDataset(data.Dataset):
         self._vps_train = self._vps[:self._split_ind]
         self._modes_train = self._modes[:self._split_ind]
         self._ids_train = self._ids[:self._split_ind]
+        self._genres_train = self._genres[:self._split_ind]
 
         self._vps_test = self._vps[self._split_ind:]
         self._modes_test = self._modes[self._split_ind:]
         self._ids_test = self._ids[self._split_ind:]
+        self._genres_test = self._genres[self._split_ind:]
 
         inputpath = 'data/inputs/'+ notes +'_' + str(seq_length) + '_'+ representation 
-        if not os.path.isfile(inputpath +'_next_corpus_train.txt'):
+        if not os.path.isfile(inputpath +'_string_genre_corpus_train.txt'):
             print('saving input to file')
-            input_corpus = [' '.join([str(i) for i in vp[:-1]]) for vp in self._vps_train]
-            next_target_corpus = [' '.join([str(i) for i in vp[1:]]) for vp in self._vps_train]
-            mode_target_corpus = [' '.join([str(mode) for i in range(seq_length)]) for mode in self._modes_train]
+            string_corpus = ['%'.join([self._ix_to_char[i] for i in vp[:-1]]) for vp in self._vps_train]
+            input_corpus = ['%'.join([str(i) for i in vp[:-1]]) for vp in self._vps_train]
+
+            mode_target_corpus = ['%'.join([str(self._mode_to_ix[mode]) for i in range(seq_length)]) for mode in self._modes_train]
+
+            genre_target_corpus = ['%'.join([str(self._genre_to_ix[genre]) for i in range(seq_length)]) for genre in self._genres_train]
             
-            next_corpus = '\n'.join(f'{w}\t{t}' for w,t in zip(input_corpus, next_target_corpus))
             mode_corpus = '\n'.join(f'{w}\t{t}' for w,t in zip(input_corpus, mode_target_corpus))
-            with open(inputpath + '_next_corpus_train.txt', 'w') as f:
-                f.write(next_corpus)
 
             with open(inputpath + '_mode_corpus_train.txt', 'w') as f:
                 f.write(mode_corpus)
 
-            with open(inputpath + '_vocab.pckl', 'wb') as fp:
-                pickle.dump(self._vocab, fp)
+            string_mode_corpus = '\n'.join(f'{w}\t{t}' for w,t in zip(string_corpus, mode_target_corpus))
+            string_genre_corpus = '\n'.join(f'{w}\t{t}' for w,t in zip(string_corpus, genre_target_corpus))
 
-        if not os.path.isfile(inputpath +'_next_corpus_test.txt'):
+            with open(inputpath + '_string_mode_corpus_train.txt', 'wb') as f:
+                f.write(string_mode_corpus.encode('utf-8'))
+            with open(inputpath + '_string_genre_corpus_train.txt', 'wb') as f:
+                f.write(string_genre_corpus.encode('utf-8'))
+
+            with open(inputpath + '_genre_vocab.txt', 'w') as f:
+                f.write('\n'.join([str(x) for x in self._unique_genres]))
+
+            with open(inputpath + '_vocab.txt', 'wb') as f:
+                voc = '\n'.join([x for x in self._vocab])
+                f.write(voc.encode('utf-8'))
+
+        if not os.path.isfile(inputpath +'_string_genre_corpus_test.txt'):
             print('saving input to file')
-            input_corpus = [' '.join([str(i) for i in vp[:-1]]) for vp in self._vps_test]
-            next_target_corpus = [' '.join([str(i) for i in vp[1:]]) for vp in self._vps_test]
-            mode_target_corpus = [' '.join([str(mode) for i in range(seq_length)]) for mode in self._modes_test]
+            string_corpus = ['%'.join([self._ix_to_char[i] for i in vp[:-1]]) for vp in self._vps_test]
+            input_corpus = ['%'.join([str(i) for i in vp[:-1]]) for vp in self._vps_test]
+            mode_target_corpus = ['%'.join([str(self._mode_to_ix[mode]) for i in range(seq_length)]) for mode in self._modes_test]
+
+            genre_target_corpus = ['%'.join([str(self._genre_to_ix[genre]) for i in range(seq_length)]) for genre in self._genres_test]
             
-            next_corpus = '\n'.join(f'{w}\t{t}' for w,t in zip(input_corpus, next_target_corpus))
             mode_corpus = '\n'.join(f'{w}\t{t}' for w,t in zip(input_corpus, mode_target_corpus))
-            with open(inputpath + '_next_corpus_test.txt', 'w') as f:
-                f.write(next_corpus)
+            string_genre_corpus = '\n'.join(f'{w}\t{t}' for w,t in zip(string_corpus, genre_target_corpus))
 
             with open(inputpath + '_mode_corpus_test.txt', 'w') as f:
                 f.write(mode_corpus)
 
-            with open(inputpath + '_vocab.pckl', 'wb') as fp:
-                pickle.dump(self._vocab, fp)
+            string_mode_corpus = '\n'.join(f'{w}\t{t}' for w,t in zip(string_corpus, mode_target_corpus))
+            string_genre_corpus = '\n'.join(f'{w}\t{t}' for w,t in zip(string_corpus, genre_target_corpus))
+
+            with open(inputpath + '_string_mode_corpus_test.txt', 'wb') as f:
+                f.write(string_mode_corpus.encode('utf-8'))
+            with open(inputpath + '_string_genre_corpus_test.txt', 'wb') as f:
+                f.write(string_genre_corpus.encode('utf-8'))
+
+
 
     def __getitem__(self, item):
         if self._traintest == 'train':
@@ -238,14 +274,16 @@ class ChantDataset(data.Dataset):
             inputs = self._vps_train[item][:self._seq_length]
             mode_targets = self._mode_to_ix[self._modes_train[item]]
             next_targets = self._vps_train[item][1:self._seq_length+1]
+            genre = self._genre_to_ix[self._genres_train[item]]
 
         if self._traintest == 'test':
             # inputs = [self._char_to_ix[ch] for ch in self._vps_test[item][:self._seq_length]]
             inputs = self._vps_test[item][:self._seq_length]
             mode_targets = self._mode_to_ix[self._modes_test[item]]
             next_targets = self._vps_test[item][1:self._seq_length+1]
+            genre = self._genre_to_ix[self._genres_test[item]]
 
-        return inputs, next_targets, mode_targets
+        return inputs, next_targets, mode_targets, genre
 
     def __len__(self):
         if self._traintest == 'train':
@@ -305,7 +343,14 @@ class ChantDataset(data.Dataset):
         return s
     
     def convert_to_string(self, char_ix):
-        return ''.join(self._ix_to_char[ix] for ix in char_ix)
+        if self._representation == 'raw':
+            return ''.join(self._ix_to_char[ix] for ix in char_ix)
+        if self._representation == 'neume':
+            return '-'.join(self._ix_to_char[ix] for ix in char_ix)
+        if self._representation == 'syllable':
+            return '--'.join(self._ix_to_char[ix] for ix in char_ix)
+        if self._representation == 'word':
+            return '---'.join(self._ix_to_char[ix] for ix in char_ix)
 
 def num2hot(batch, vocab_size):
     # Get the shape of the input and add the vocabulary size in a new dimension
@@ -320,4 +365,11 @@ def num2hot(batch, vocab_size):
 
     return y_out
 
+# d = ChantDataset(20, 'neume', 'next', 'train', 'pitch')
 # d = ChantDataset(20, 'neume', 'next', 'train', 'interval')
+# d = ChantDataset(20, 'raw', 'next', 'train', 'pitch')
+# d = ChantDataset(20, 'raw', 'next', 'train', 'interval')
+# d = ChantDataset(30, 'raw', 'next', 'train', 'pitch')
+# d = ChantDataset(30, 'raw', 'next', 'train', 'interval')
+# d = ChantDataset(20, 'syllable', 'next', 'train', 'pitch')
+# d = ChantDataset(20, 'syllable', 'next', 'train', 'interval')

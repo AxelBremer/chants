@@ -18,7 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 import torch.nn as nn
-
+import math
 
 class ModeModel(nn.Module):
 
@@ -35,8 +35,15 @@ class ModeModel(nn.Module):
         self.device = device
         self.epochs = 0
         self.target = target
+        # self.embedding_dim = math.floor(vocab_size ** 0.25)
+        self.embedding_dim = 50
+        
+        print('Embedding dim =', self.embedding_dim)
 
-        self.lstm = nn.LSTM(input_size = self.vocab_size,
+        self.embedding = nn.Embedding(num_embeddings=self.vocab_size,
+                                      embedding_dim=self.embedding_dim)
+
+        self.lstm = nn.LSTM(input_size = self.embedding_dim,
                                         hidden_size = self.lstm_num_hidden,
                                         num_layers = self.lstm_num_layers,
                                         batch_first = True)
@@ -69,6 +76,7 @@ class ModeModel(nn.Module):
                                     bias = True)
 
     def forward(self, x, states=None):
+        x = self.embedding(x)
         if self.target == 'both':
             if states != None:
                 lstm_out, states = self.lstm(x, states)

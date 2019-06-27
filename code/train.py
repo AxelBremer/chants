@@ -120,7 +120,7 @@ def train(config):
     while out_epochs < config.train_epochs:
         for step, (batch_inputs, batch_next_targets, batch_mode_targets) in enumerate(data_loader):
             x = torch.stack(batch_inputs, dim=1).to(device)
-            x = num2hot(x, vocab_size, device)
+            # x = num2hot(x, vocab_size, device)
 
             if config.target == 'mode':
                 # Many to many
@@ -159,7 +159,7 @@ def train(config):
             for step, (test_batch_inputs, test_batch_next_targets, test_batch_mode_targets) in enumerate(test_data_loader):
                 ct += 1
                 x = torch.stack(test_batch_inputs, dim=1).to(device)
-                x = num2hot(x, vocab_size, device)
+                # x = num2hot(x, vocab_size, device)
                 
                 if config.target == 'mode':
                     # Many to many
@@ -195,7 +195,7 @@ def train(config):
             for step, (train_batch_inputs, train_batch_next_targets, train_batch_mode_targets) in enumerate(data_loader):
                 ct += 1
                 x = torch.stack(train_batch_inputs, dim=1).to(device)
-                x = num2hot(x, vocab_size, device)
+                # x = num2hot(x, vocab_size, device)
                 
                 if config.target == 'mode':
                     # Many to many
